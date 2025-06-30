@@ -104,7 +104,7 @@
         <h1 class="header">CORS PoCs (POST Request) for Strapi Admin Panel</h1>
         <p class="description">
             This page, hosted on a different origin (e.g., `attacker.com`), attempts to make a <strong>POST</strong> request to
-            `https://infiniteathlete.ai/api/auth/change-password`.
+            `https://cms.infiniteathlete.ai/api/auth/change-password`.
             If the target server has a misconfigured CORS policy (e.g., `Access-Control-Allow-Origin: *` and
             `Access-Control-Allow-Credentials: true`),
             the response will be displayed below. A 403 (Forbidden) error indicates the request *reached* the server but was denied, which is a success for CORS bypass.
@@ -132,7 +132,7 @@
 
             // --- Configuration for your POST request ---
             // Set the target URL to the Strapi password change endpoint
-            const targetUrl = 'https://infiniteathlete.ai/api/auth/change-password';
+            const targetUrl = 'https://cms.infiniteathlete.ai/api/auth/change-password';
 
             // Define the data payload for the password change
             // IMPORTANT: You'll need to adjust 'currentPassword', 'password', and 'passwordConfirmation'
